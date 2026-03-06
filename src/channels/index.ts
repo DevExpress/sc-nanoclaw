@@ -7,6 +7,9 @@
 
 // slack
 
+// es (event sourcing pipeline)
+import './es.js';
+
 // teams
 import './teams.js';
 
