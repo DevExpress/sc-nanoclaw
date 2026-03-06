@@ -58,13 +58,14 @@ export class TeamsChannel implements Channel {
     // Read credentials from .env (not process.env — keeps secrets off the
     // environment so they don't leak to child processes, matching NanoClaw's
     // security pattern)
-    const env = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_PORT']);
+    const env = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_TENANT_ID', 'TEAMS_PORT']);
     const appId = env.TEAMS_APP_ID;
     const appPassword = env.TEAMS_APP_PASSWORD;
+    const tenantId = env.TEAMS_TENANT_ID;
 
-    if (!appId || !appPassword) {
+    if (!appId || !appPassword || !tenantId) {
       throw new Error(
-        'TEAMS_APP_ID and TEAMS_APP_PASSWORD must be set in .env',
+        'TEAMS_APP_ID, TEAMS_APP_PASSWORD, and TEAMS_TENANT_ID must be set in .env',
       );
     }
 
@@ -76,7 +77,8 @@ export class TeamsChannel implements Channel {
     const authConfig = {
       MicrosoftAppId: appId,
       MicrosoftAppPassword: appPassword,
-      MicrosoftAppType: 'MultiTenant',
+      MicrosoftAppType: 'SingleTenant',
+      MicrosoftAppTenantId: tenantId,
     };
     const auth = new ConfigurationBotFrameworkAuthentication(authConfig as any);
     this.adapter = new CloudAdapter(auth);
@@ -359,9 +361,9 @@ function splitText(text: string, maxLen: number): string[] {
 }
 
 registerChannel('teams', (opts: ChannelOpts) => {
-  const envVars = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD']);
-  if (!envVars.TEAMS_APP_ID || !envVars.TEAMS_APP_PASSWORD) {
-    logger.warn('Teams: TEAMS_APP_ID or TEAMS_APP_PASSWORD not set');
+  const envVars = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_TENANT_ID']);
+  if (!envVars.TEAMS_APP_ID || !envVars.TEAMS_APP_PASSWORD || !envVars.TEAMS_TENANT_ID) {
+    logger.warn('Teams: TEAMS_APP_ID, TEAMS_APP_PASSWORD, or TEAMS_TENANT_ID not set');
     return null;
   }
   return new TeamsChannel(opts);
