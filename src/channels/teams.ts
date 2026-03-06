@@ -122,8 +122,13 @@ export class TeamsChannel implements Channel {
           expressLikeRes.send ??= (body?: string) => { res.end(body); return expressLikeRes; };
           expressLikeRes.header ??= (name: string, value: string) => { res.setHeader(name, value); return expressLikeRes; };
           await this.adapter.process(req, expressLikeRes, (context) => handler.run(context));
-        } catch (err) {
-          logger.error({ err }, 'Teams: error processing activity');
+        } catch (err: any) {
+          logger.error({
+            err,
+            message: err?.message,
+            statusCode: err?.statusCode,
+            stack: err?.stack,
+          }, 'Teams: error processing activity');
           if (!res.headersSent) {
             res.writeHead(500);
             res.end();
