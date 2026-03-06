@@ -1,0 +1,20 @@
+skill: teams
+version: 1.0.0
+description: 'Microsoft Teams Bot integration via Bot Framework SDK with embedded HTTP server'
+core_version: 0.1.0
+adds:
+  - src/channels/teams.ts
+  - src/channels/teams.test.ts
+modifies:
+  - src/channels/index.ts
+structured:
+  npm_dependencies:
+    botbuilder: '^4.23.3'
+    botframework-connector: '^4.23.3'
+  env_additions:
+    - TEAMS_APP_ID
+    - TEAMS_APP_PASSWORD
+    - TEAMS_PORT
+conflicts: []
+depends: []
+test: 'npx vitest run src/channels/teams.test.ts'
