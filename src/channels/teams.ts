@@ -85,7 +85,12 @@ export class TeamsChannel implements Channel {
 
     // Catch-all error handler — log and continue
     this.adapter.onTurnError = async (_context, error) => {
-      logger.error({ err: error }, 'Teams adapter turn error');
+      logger.error({
+        err: error,
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+      }, 'Teams adapter turn error');
     };
   }
 
@@ -97,6 +102,19 @@ export class TeamsChannel implements Channel {
     this.server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && req.url === '/api/messages') {
         try {
+          // CloudAdapter.process() requires req.body to be a pre-parsed
+          // object (like restify.plugins.bodyParser() or express.json()
+          // would provide). Since we use a raw http.createServer we must
+          // parse the JSON body manually before handing it to the adapter.
+          const body = await parseJsonBody(req);
+          (req as any).body = body;
+
+          logger.info({
+            activityType: body?.type,
+            channelId: body?.channelId,
+            hasAuth: !!req.headers.authorization,
+          }, 'Teams: processing incoming activity');
+
           // CloudAdapter.process() expects Express-like Request/Response.
           // Wrap the raw ServerResponse with the minimal shim it needs.
           const expressLikeRes = res as any;
@@ -347,6 +365,31 @@ class NanoClawTeamsHandler extends TeamsActivityHandler {
   async onMessageActivity(context: TurnContext): Promise<void> {
     await this.channel.handleIncomingMessage(context);
   }
+}
+
+/**
+ * Read and parse the JSON body from an incoming HTTP request.
+ * CloudAdapter.process() requires req.body to be a pre-parsed object —
+ * it does NOT read the stream itself (confirmed from SDK source:
+ * cloudAdapter.ts line 141 checks z.record(z.unknown()).safeParse(req.body)).
+ * Every official sample uses restify.plugins.bodyParser() or express.json()
+ * for this; since we use raw http.createServer we do it manually.
+ */
+function parseJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        const parsed = JSON.parse(raw);
+        resolve(parsed);
+      } catch (err) {
+        reject(new Error(`Failed to parse JSON body: ${err}`));
+      }
+    });
+    req.on('error', reject);
+  });
 }
 
 /**
