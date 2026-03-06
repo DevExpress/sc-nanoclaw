@@ -97,17 +97,12 @@ export class TeamsChannel implements Channel {
     this.server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && req.url === '/api/messages') {
         try {
-          // CloudAdapter.process() expects Express-like req/res.
-          // Parse the JSON body and attach it to req.body, then shim
-          // the handful of Express response methods the SDK calls.
-          const body = await parseJsonBody(req);
-          (req as any).body = body;
-
+          // CloudAdapter.process() expects Express-like Request/Response.
+          // Wrap the raw ServerResponse with the minimal shim it needs.
           const expressLikeRes = res as any;
           expressLikeRes.status ??= (code: number) => { res.statusCode = code; return expressLikeRes; };
-          expressLikeRes.send ??= (data?: string) => { res.end(data); return expressLikeRes; };
+          expressLikeRes.send ??= (body?: string) => { res.end(body); return expressLikeRes; };
           expressLikeRes.header ??= (name: string, value: string) => { res.setHeader(name, value); return expressLikeRes; };
-
           await this.adapter.process(req, expressLikeRes, (context) => handler.run(context));
         } catch (err) {
           logger.error({ err }, 'Teams: error processing activity');
@@ -352,24 +347,6 @@ class NanoClawTeamsHandler extends TeamsActivityHandler {
   async onMessageActivity(context: TurnContext): Promise<void> {
     await this.channel.handleIncomingMessage(context);
   }
-}
-
-/**
- * Read and JSON-parse the request body from a raw http.IncomingMessage.
- */
-function parseJsonBody(req: http.IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString()));
-      } catch (err) {
-        reject(err);
-      }
-    });
-    req.on('error', reject);
-  });
 }
 
 /**
