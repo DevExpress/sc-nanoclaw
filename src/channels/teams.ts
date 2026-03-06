@@ -58,7 +58,12 @@ export class TeamsChannel implements Channel {
     // Read credentials from .env (not process.env — keeps secrets off the
     // environment so they don't leak to child processes, matching NanoClaw's
     // security pattern)
-    const env = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_TENANT_ID', 'TEAMS_PORT']);
+    const env = readEnvFile([
+      'TEAMS_APP_ID',
+      'TEAMS_APP_PASSWORD',
+      'TEAMS_TENANT_ID',
+      'TEAMS_PORT',
+    ]);
     const appId = env.TEAMS_APP_ID;
     const appPassword = env.TEAMS_APP_PASSWORD;
     const tenantId = env.TEAMS_TENANT_ID;
@@ -85,12 +90,15 @@ export class TeamsChannel implements Channel {
 
     // Catch-all error handler — log and continue
     this.adapter.onTurnError = async (_context, error) => {
-      logger.error({
-        err: error,
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name,
-      }, 'Teams adapter turn error');
+      logger.error(
+        {
+          err: error,
+          message: error?.message,
+          stack: error?.stack,
+          name: error?.name,
+        },
+        'Teams adapter turn error',
+      );
     };
   }
 
@@ -109,26 +117,43 @@ export class TeamsChannel implements Channel {
           const body = await parseJsonBody(req);
           (req as any).body = body;
 
-          logger.info({
-            activityType: body?.type,
-            channelId: body?.channelId,
-            hasAuth: !!req.headers.authorization,
-          }, 'Teams: processing incoming activity');
+          logger.info(
+            {
+              activityType: body?.type,
+              channelId: body?.channelId,
+              hasAuth: !!req.headers.authorization,
+            },
+            'Teams: processing incoming activity',
+          );
 
           // CloudAdapter.process() expects Express-like Request/Response.
           // Wrap the raw ServerResponse with the minimal shim it needs.
           const expressLikeRes = res as any;
-          expressLikeRes.status ??= (code: number) => { res.statusCode = code; return expressLikeRes; };
-          expressLikeRes.send ??= (body?: string) => { res.end(body); return expressLikeRes; };
-          expressLikeRes.header ??= (name: string, value: string) => { res.setHeader(name, value); return expressLikeRes; };
-          await this.adapter.process(req, expressLikeRes, (context) => handler.run(context));
+          expressLikeRes.status ??= (code: number) => {
+            res.statusCode = code;
+            return expressLikeRes;
+          };
+          expressLikeRes.send ??= (body?: string) => {
+            res.end(body);
+            return expressLikeRes;
+          };
+          expressLikeRes.header ??= (name: string, value: string) => {
+            res.setHeader(name, value);
+            return expressLikeRes;
+          };
+          await this.adapter.process(req, expressLikeRes, (context) =>
+            handler.run(context),
+          );
         } catch (err: any) {
-          logger.error({
-            err,
-            message: err?.message,
-            statusCode: err?.statusCode,
-            stack: err?.stack,
-          }, 'Teams: error processing activity');
+          logger.error(
+            {
+              err,
+              message: err?.message,
+              statusCode: err?.statusCode,
+              stack: err?.stack,
+            },
+            'Teams: error processing activity',
+          );
           if (!res.headersSent) {
             res.writeHead(500);
             res.end();
@@ -178,7 +203,8 @@ export class TeamsChannel implements Channel {
     this.conversationRefs.set(jid, ref);
 
     // Determine if this is a group conversation or 1:1
-    const isGroup = activity.conversation.isGroup === true ||
+    const isGroup =
+      activity.conversation.isGroup === true ||
       activity.conversation.conversationType === 'channel' ||
       activity.conversation.conversationType === 'groupChat';
 
@@ -201,8 +227,8 @@ export class TeamsChannel implements Channel {
     if (!groups[jid]) return;
 
     // Detect if this is from the bot itself
-    const isBotMessage = activity.from?.id === this.botId ||
-      activity.from?.role === 'bot';
+    const isBotMessage =
+      activity.from?.id === this.botId || activity.from?.role === 'bot';
 
     let senderName: string;
     if (isBotMessage) {
@@ -223,9 +249,7 @@ export class TeamsChannel implements Channel {
       }
       // If the bot was @mentioned, prepend trigger
       const wasMentioned = activity.entities?.some(
-        (e) =>
-          e.type === 'mention' &&
-          e.mentioned?.id === this.botId,
+        (e) => e.type === 'mention' && e.mentioned?.id === this.botId,
       );
       if (wasMentioned && !TRIGGER_PATTERN.test(content)) {
         content = `@${ASSISTANT_NAME} ${content}`;
@@ -380,7 +404,9 @@ class NanoClawTeamsHandler extends TeamsActivityHandler {
  * Every official sample uses restify.plugins.bodyParser() or express.json()
  * for this; since we use raw http.createServer we do it manually.
  */
-function parseJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+function parseJsonBody(
+  req: http.IncomingMessage,
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -409,9 +435,19 @@ function splitText(text: string, maxLen: number): string[] {
 }
 
 registerChannel('teams', (opts: ChannelOpts) => {
-  const envVars = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_TENANT_ID']);
-  if (!envVars.TEAMS_APP_ID || !envVars.TEAMS_APP_PASSWORD || !envVars.TEAMS_TENANT_ID) {
-    logger.warn('Teams: TEAMS_APP_ID, TEAMS_APP_PASSWORD, or TEAMS_TENANT_ID not set');
+  const envVars = readEnvFile([
+    'TEAMS_APP_ID',
+    'TEAMS_APP_PASSWORD',
+    'TEAMS_TENANT_ID',
+  ]);
+  if (
+    !envVars.TEAMS_APP_ID ||
+    !envVars.TEAMS_APP_PASSWORD ||
+    !envVars.TEAMS_TENANT_ID
+  ) {
+    logger.warn(
+      'Teams: TEAMS_APP_ID, TEAMS_APP_PASSWORD, or TEAMS_TENANT_ID not set',
+    );
     return null;
   }
   return new TeamsChannel(opts);

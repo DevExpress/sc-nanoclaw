@@ -51,11 +51,7 @@ vi.mock('botbuilder', () => {
       }
     }
 
-    async continueConversationAsync(
-      botId: string,
-      ref: any,
-      callback: any,
-    ) {
+    async continueConversationAsync(botId: string, ref: any, callback: any) {
       const mockContext = {
         sendActivity: vi.fn().mockResolvedValue(undefined),
       };
@@ -73,7 +69,8 @@ vi.mock('botbuilder', () => {
     static getConversationReference(activity: any) {
       return {
         conversation: activity.conversation,
-        serviceUrl: activity.serviceUrl || 'https://smba.trafficmanager.net/teams/',
+        serviceUrl:
+          activity.serviceUrl || 'https://smba.trafficmanager.net/teams/',
         channelId: 'msteams',
         bot: { id: 'bot-id', name: 'Bot' },
       };
@@ -97,7 +94,8 @@ vi.mock('botbuilder', () => {
 
   return {
     CloudAdapter: MockCloudAdapter,
-    ConfigurationBotFrameworkAuthentication: MockConfigurationBotFrameworkAuthentication,
+    ConfigurationBotFrameworkAuthentication:
+      MockConfigurationBotFrameworkAuthentication,
     TurnContext: MockTurnContext,
     TeamsActivityHandler: MockTeamsActivityHandler,
     TeamsInfo: {},
@@ -650,10 +648,7 @@ describe('TeamsChannel', () => {
 
       await channel.connect();
       // No prior message handled — no conversation reference
-      await channel.sendMessage(
-        'teams:19:unknown@thread.tacv2',
-        'No ref',
-      );
+      await channel.sendMessage('teams:19:unknown@thread.tacv2', 'No ref');
 
       expect(adapterRef.continueConversationCalls.length).toBe(0);
 
