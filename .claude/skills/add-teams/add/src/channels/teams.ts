@@ -58,13 +58,19 @@ export class TeamsChannel implements Channel {
     // Read credentials from .env (not process.env — keeps secrets off the
     // environment so they don't leak to child processes, matching NanoClaw's
     // security pattern)
-    const env = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_PORT']);
+    const env = readEnvFile([
+      'TEAMS_APP_ID',
+      'TEAMS_APP_PASSWORD',
+      'TEAMS_TENANT_ID',
+      'TEAMS_PORT',
+    ]);
     const appId = env.TEAMS_APP_ID;
     const appPassword = env.TEAMS_APP_PASSWORD;
+    const tenantId = env.TEAMS_TENANT_ID;
 
-    if (!appId || !appPassword) {
+    if (!appId || !appPassword || !tenantId) {
       throw new Error(
-        'TEAMS_APP_ID and TEAMS_APP_PASSWORD must be set in .env',
+        'TEAMS_APP_ID, TEAMS_APP_PASSWORD, and TEAMS_TENANT_ID must be set in .env',
       );
     }
 
@@ -76,14 +82,23 @@ export class TeamsChannel implements Channel {
     const authConfig = {
       MicrosoftAppId: appId,
       MicrosoftAppPassword: appPassword,
-      MicrosoftAppType: 'MultiTenant',
+      MicrosoftAppType: 'SingleTenant',
+      MicrosoftAppTenantId: tenantId,
     };
     const auth = new ConfigurationBotFrameworkAuthentication(authConfig as any);
     this.adapter = new CloudAdapter(auth);
 
     // Catch-all error handler — log and continue
     this.adapter.onTurnError = async (_context, error) => {
-      logger.error({ err: error }, 'Teams adapter turn error');
+      logger.error(
+        {
+          err: error,
+          message: error?.message,
+          stack: error?.stack,
+          name: error?.name,
+        },
+        'Teams adapter turn error',
+      );
     };
   }
 
@@ -95,9 +110,50 @@ export class TeamsChannel implements Channel {
     this.server = http.createServer(async (req, res) => {
       if (req.method === 'POST' && req.url === '/api/messages') {
         try {
-          await this.adapter.process(req, res, (context) => handler.run(context));
-        } catch (err) {
-          logger.error({ err }, 'Teams: error processing activity');
+          // CloudAdapter.process() requires req.body to be a pre-parsed
+          // object (like restify.plugins.bodyParser() or express.json()
+          // would provide). Since we use a raw http.createServer we must
+          // parse the JSON body manually before handing it to the adapter.
+          const body = await parseJsonBody(req);
+          (req as any).body = body;
+
+          logger.info(
+            {
+              activityType: body?.type,
+              channelId: body?.channelId,
+              hasAuth: !!req.headers.authorization,
+            },
+            'Teams: processing incoming activity',
+          );
+
+          // CloudAdapter.process() expects Express-like Request/Response.
+          // Wrap the raw ServerResponse with the minimal shim it needs.
+          const expressLikeRes = res as any;
+          expressLikeRes.status ??= (code: number) => {
+            res.statusCode = code;
+            return expressLikeRes;
+          };
+          expressLikeRes.send ??= (body?: string) => {
+            res.end(body);
+            return expressLikeRes;
+          };
+          expressLikeRes.header ??= (name: string, value: string) => {
+            res.setHeader(name, value);
+            return expressLikeRes;
+          };
+          await this.adapter.process(req, expressLikeRes, (context) =>
+            handler.run(context),
+          );
+        } catch (err: any) {
+          logger.error(
+            {
+              err,
+              message: err?.message,
+              statusCode: err?.statusCode,
+              stack: err?.stack,
+            },
+            'Teams: error processing activity',
+          );
           if (!res.headersSent) {
             res.writeHead(500);
             res.end();
@@ -342,6 +398,33 @@ class NanoClawTeamsHandler extends TeamsActivityHandler {
 }
 
 /**
+ * Read and parse the JSON body from an incoming HTTP request.
+ * CloudAdapter.process() requires req.body to be a pre-parsed object —
+ * it does NOT read the stream itself (confirmed from SDK source:
+ * cloudAdapter.ts line 141 checks z.record(z.unknown()).safeParse(req.body)).
+ * Every official sample uses restify.plugins.bodyParser() or express.json()
+ * for this; since we use raw http.createServer we do it manually.
+ */
+function parseJsonBody(
+  req: http.IncomingMessage,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        const parsed = JSON.parse(raw);
+        resolve(parsed);
+      } catch (err) {
+        reject(new Error(`Failed to parse JSON body: ${err}`));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/**
  * Split text into chunks of maxLen characters.
  */
 function splitText(text: string, maxLen: number): string[] {
@@ -353,9 +436,19 @@ function splitText(text: string, maxLen: number): string[] {
 }
 
 registerChannel('teams', (opts: ChannelOpts) => {
-  const envVars = readEnvFile(['TEAMS_APP_ID', 'TEAMS_APP_PASSWORD']);
-  if (!envVars.TEAMS_APP_ID || !envVars.TEAMS_APP_PASSWORD) {
-    logger.warn('Teams: TEAMS_APP_ID or TEAMS_APP_PASSWORD not set');
+  const envVars = readEnvFile([
+    'TEAMS_APP_ID',
+    'TEAMS_APP_PASSWORD',
+    'TEAMS_TENANT_ID',
+  ]);
+  if (
+    !envVars.TEAMS_APP_ID ||
+    !envVars.TEAMS_APP_PASSWORD ||
+    !envVars.TEAMS_TENANT_ID
+  ) {
+    logger.warn(
+      'Teams: TEAMS_APP_ID, TEAMS_APP_PASSWORD, or TEAMS_TENANT_ID not set',
+    );
     return null;
   }
   return new TeamsChannel(opts);

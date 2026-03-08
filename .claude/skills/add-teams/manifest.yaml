@@ -14,6 +14,7 @@ structured:
   env_additions:
     - TEAMS_APP_ID
     - TEAMS_APP_PASSWORD
+    - TEAMS_TENANT_ID
     - TEAMS_PORT
 conflicts: []
 depends: []

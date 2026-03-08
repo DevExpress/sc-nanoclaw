@@ -109,6 +109,7 @@ vi.mock('../env.js', () => ({
   readEnvFile: vi.fn().mockReturnValue({
     TEAMS_APP_ID: 'test-app-id',
     TEAMS_APP_PASSWORD: 'test-app-password',
+    TEAMS_TENANT_ID: 'test-tenant-id',
     TEAMS_PORT: '0', // Use port 0 for random available port in tests
   }),
 }));
@@ -787,11 +788,12 @@ describe('TeamsChannel', () => {
       vi.mocked(readEnvFile).mockReturnValueOnce({
         TEAMS_APP_ID: '',
         TEAMS_APP_PASSWORD: 'test-password',
+        TEAMS_TENANT_ID: 'test-tenant-id',
         TEAMS_PORT: '3978',
       });
 
       expect(() => new TeamsChannel(createTestOpts())).toThrow(
-        'TEAMS_APP_ID and TEAMS_APP_PASSWORD must be set in .env',
+        'TEAMS_APP_ID, TEAMS_APP_PASSWORD, and TEAMS_TENANT_ID must be set in .env',
       );
     });
 
@@ -799,11 +801,25 @@ describe('TeamsChannel', () => {
       vi.mocked(readEnvFile).mockReturnValueOnce({
         TEAMS_APP_ID: 'test-id',
         TEAMS_APP_PASSWORD: '',
+        TEAMS_TENANT_ID: 'test-tenant-id',
         TEAMS_PORT: '3978',
       });
 
       expect(() => new TeamsChannel(createTestOpts())).toThrow(
-        'TEAMS_APP_ID and TEAMS_APP_PASSWORD must be set in .env',
+        'TEAMS_APP_ID, TEAMS_APP_PASSWORD, and TEAMS_TENANT_ID must be set in .env',
+      );
+    });
+
+    it('throws when TEAMS_TENANT_ID is missing', () => {
+      vi.mocked(readEnvFile).mockReturnValueOnce({
+        TEAMS_APP_ID: 'test-id',
+        TEAMS_APP_PASSWORD: 'test-password',
+        TEAMS_TENANT_ID: '',
+        TEAMS_PORT: '3978',
+      });
+
+      expect(() => new TeamsChannel(createTestOpts())).toThrow(
+        'TEAMS_APP_ID, TEAMS_APP_PASSWORD, and TEAMS_TENANT_ID must be set in .env',
       );
     });
   });

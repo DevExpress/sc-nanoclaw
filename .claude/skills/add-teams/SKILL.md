@@ -15,7 +15,7 @@ Read `.nanoclaw/state.yaml`. If `teams` is in `applied_skills`, skip to Phase 3 
 
 ### Ask the user
 
-**Do they already have an Azure Bot registration?** If yes, collect the App ID and App Password now. If no, we'll create one in Phase 3.
+**Do they already have an Azure Bot registration?** If yes, collect the App ID, App Password, and Tenant ID now. If no, we'll create one in Phase 3.
 
 **Important:** Unlike Slack (Socket Mode) or Discord (WebSocket Gateway), Teams bots require an HTTP endpoint reachable from the internet. Ask the user which approach they prefer:
 
@@ -71,13 +71,14 @@ If the user doesn't have an Azure Bot, share [TEAMS_SETUP.md](TEAMS_SETUP.md) wh
 
 Quick summary of what's needed:
 
-1. Create an Azure Bot resource in the Azure Portal
+1. Create an Azure Bot resource in the Azure Portal (Single Tenant)
 2. Note the **Microsoft App ID** (also called Client ID)
-3. Create a **Client Secret** (App Password) under Certificates & Secrets
-4. Configure the Messaging Endpoint to point to `https://<your-public-url>/api/messages`
-5. Enable the Microsoft Teams channel in the Azure Bot's Channels blade
+3. Note the **Tenant ID** from Microsoft Entra ID
+4. Create a **Client Secret** (App Password) under Certificates & Secrets
+5. Configure the Messaging Endpoint to point to `https://<your-public-url>/api/messages`
+6. Enable the Microsoft Teams channel in the Azure Bot's Channels blade
 
-Wait for the user to provide the App ID and App Password.
+Wait for the user to provide the App ID, App Password, and Tenant ID.
 
 ### Set up the public endpoint
 
@@ -106,6 +107,7 @@ Add to `.env`:
 ```bash
 TEAMS_APP_ID=your-microsoft-app-id
 TEAMS_APP_PASSWORD=your-client-secret
+TEAMS_TENANT_ID=your-tenant-id
 TEAMS_PORT=3978
 ```
 
@@ -196,7 +198,7 @@ tail -f logs/nanoclaw.log
 
 ### Bot not responding
 
-1. Check `TEAMS_APP_ID` and `TEAMS_APP_PASSWORD` are set in `.env` AND synced to `data/env/env`
+1. Check `TEAMS_APP_ID`, `TEAMS_APP_PASSWORD`, and `TEAMS_TENANT_ID` are set in `.env` AND synced to `data/env/env`
 2. Check the conversation is registered: `sqlite3 store/messages.db "SELECT * FROM registered_groups WHERE jid LIKE 'teams:%'"`
 3. For non-main channels: message must include @mention of the bot
 4. Service is running: `launchctl list | grep nanoclaw`
@@ -212,7 +214,8 @@ tail -f logs/nanoclaw.log
 
 1. Verify `TEAMS_APP_ID` matches the Azure Bot's Microsoft App ID
 2. Verify `TEAMS_APP_PASSWORD` is the correct client secret (not the secret ID, but the secret value)
-3. If you regenerated the secret, update `.env` and restart
+3. Verify `TEAMS_TENANT_ID` matches your Azure AD tenant ID
+4. If you regenerated the secret, update `.env` and restart
 
 ### Port conflict
 

@@ -91,6 +91,11 @@ describe('teams skill package', () => {
     expect(content).not.toContain('process.env.TEAMS_APP_ID');
     expect(content).not.toContain('process.env.TEAMS_APP_PASSWORD');
 
+    // SingleTenant auth with tenant ID
+    expect(content).toContain('SingleTenant');
+    expect(content).toContain('TEAMS_TENANT_ID');
+    expect(content).toContain('MicrosoftAppTenantId');
+
     // Key behaviors
     expect(content).toContain('MAX_MESSAGE_LENGTH');
     expect(content).toContain('TRIGGER_PATTERN');

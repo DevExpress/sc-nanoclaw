@@ -20,7 +20,7 @@ Step-by-step guide to creating and configuring an Azure Bot for use with NanoCla
    - **Subscription**: Select your Azure subscription
    - **Resource group**: Create new or use existing
    - **Pricing tier**: Free (F0) is sufficient
-   - **Type of App**: **Multi Tenant**
+   - **Type of App**: **Single Tenant**
    - **Creation type**: **Create new Microsoft App ID**
 6. Click **Review + Create**, then **Create**
 
@@ -31,6 +31,13 @@ Step-by-step guide to creating and configuring an Azure Bot for use with NanoCla
 1. Navigate to your newly created Azure Bot resource
 2. Go to **Configuration** in the left sidebar
 3. Copy the **Microsoft App ID** — this is your `TEAMS_APP_ID`
+
+### Get the Tenant ID
+
+1. In the Azure Portal, go to **Microsoft Entra ID** (formerly Azure Active Directory)
+2. On the **Overview** page, copy the **Tenant ID** — this is your `TEAMS_TENANT_ID`
+
+> Alternatively, the Tenant ID is visible in the Azure Bot's app registration under **Overview** → **Directory (tenant) ID**.
 
 ### Create a Client Secret
 
@@ -165,6 +172,7 @@ Add your credentials to `.env`:
 ```
 TEAMS_APP_ID=<your-microsoft-app-id>
 TEAMS_APP_PASSWORD=<your-client-secret>
+TEAMS_TENANT_ID=<your-tenant-id>
 TEAMS_PORT=3978
 ```
 
@@ -191,6 +199,7 @@ For channel conversations (not just 1:1 DMs):
 | ---------------------------------- | ---------------------------------------------------------- |
 | Microsoft App ID (TEAMS_APP_ID)    | Azure Bot → Configuration → Microsoft App ID               |
 | Client Secret (TEAMS_APP_PASSWORD) | Azure AD App Registration → Certificates & secrets → Value |
+| Tenant ID (TEAMS_TENANT_ID)        | Microsoft Entra ID → Overview → Tenant ID                  |
 
 ## Troubleshooting
 
